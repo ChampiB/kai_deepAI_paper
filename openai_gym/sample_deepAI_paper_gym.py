@@ -1,58 +1,40 @@
 """
-	
-    Implementation of Deep Active Inference for
-    General Artificial Intelligence
-    
-    Kai Ueltzhoeffer, 2017
-
+Implementation of Deep Active Inference for
+General Artificial Intelligence
+Kai Ueltzhoeffer, 2017
 """
 
 # Imports
 import pickle
-import timeit
 import scipy
-
-from time import sleep
-
-import matplotlib.pyplot as plt
-
 import numpy
-import scipy
-
 import theano
 import theano.tensor as T
-from theano.ifelse import ifelse
-
-from theano import pprint as pp
-
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams  
-
 import matplotlib.pyplot as plt
-
 import gym
 gym.logger.set_level(40)
 
 # Parameters
-
 # For nicer text rendering, requires LateX
 plt.rc('text', usetex=True)
 plt.rc('font', family='serif', size='16') 
 
 env_name = 'MountainCar-v0'
 
-n_s = 10 # States
-base_name = 'deepAI_paper_gym' # Name for Saves and Logfile
-learning_rate = 1e-3 # Learning Rate
+n_s = 10  # States
+base_name = 'deepAI_paper_gym'  # Name for Saves and Logfile
+learning_rate = 1e-3  # Learning Rate
 learning_rate_sigma = 1e-3
-saving_steps = 10 # Save progress every nth step
-save_best_trajectory = True # Save timecourse of best parameter sets
+saving_steps = 10  # Save progress every nth step
+save_best_trajectory = True  # Save time course of best parameter sets
 
-n_run_steps = 30 # No. of Timesteps to Simulate
-n_proc = 1 # No. of Processes to Simulate for each Sample from the Population Density
-n_perturbations = 1000 # No. of Samples from Population Density per Iteration
+n_run_steps = 30  # No. of Time steps to Simulate
+n_proc = 1  # No. of Processes to Simulate for each Sample from the Population Density
+n_perturbations = 1000  # No. of Samples from Population Density per Iteration
 
-n_o = 2 # Dimensionality of Environment Output (Continous)
-n_oa = 3 # Dimensionality of Environment Action Space (Discrete)
+n_o = 2  # Dimensionality of Environment Output (Continous)
+n_oa = 3  # Dimensionality of Environment Action Space (Discrete)
 n_ha = 10
 
 # Minimum Value of Standard-Deviations, to prevent Division-by-Zero
@@ -78,41 +60,6 @@ theano_rng = RandomStreams(numpy.random.randint(ii32.max)) # ADD RANDOM SEED!
 envs = []
 for i in range(n_perturbations):
     envs.append(gym.make(env_name))
-
-# Helper Functions and Classes
-
-# Xavier initialization
-def initxavier(shape1, shape2, minval =-0.1, maxval = 0.1):
-    
-    val = numpy.random.randn(shape1, shape2) / numpy.sqrt(shape2) # "Xavier" initialization
-    
-    return val.astype(theano.config.floatX) 
-
-# Unitary transform
-def initortho(shape1, shape2):
-        x = numpy.random.normal(0.0, 0.1, (shape1, shape2))
-        xo = scipy.linalg.orth(x)
-        
-        return xo.astype(theano.config.floatX)
-
-# Uniform Weight Distribution
-def initweight(shape1, shape2, minval =-0.05, maxval = 0.05):
-    val = numpy.random.rand(
-        shape1, shape2
-    )
-    
-    val = minval + (maxval - minval)*val    
-    
-    return val.astype(theano.config.floatX) 
-    
-# Constant Weight
-def initconst(shape1, shape2, val = 0.0):
-    val = val*numpy.ones(
-        (shape1,shape2),
-        dtype=theano.config.floatX
-    )
-    
-    return val.astype(theano.config.floatX)   
 
 #ADAM Optimizer, following Kingma & Ba (2015), c.f. https://arxiv.org/abs/1412.6980
 class Adam(object):
@@ -159,13 +106,46 @@ class Adam(object):
                         (self.m, self.m_next),
                         (self.v, self.v_next),
                         (self.p, self.update)]
-                             
-def GaussianNLL(y, mu, sig):
 
+
+# Helper Functions and Classes
+# Xavier initialization
+def initxavier(shape1, shape2):
+    val = numpy.random.randn(shape1, shape2) / numpy.sqrt(shape2)  # "Xavier" initialization
+    return val.astype(theano.config.floatX)
+
+
+# Unitary transform
+def initortho(shape1, shape2):
+    x = numpy.random.normal(0.0, 0.1, (shape1, shape2))
+    xo = scipy.linalg.orth(x)
+    return xo.astype(theano.config.floatX)
+
+
+# Uniform Weight Distribution
+def initweight(shape1, shape2, minval=-0.05, maxval=0.05):
+    val = numpy.random.rand(
+        shape1, shape2
+    )
+    val = minval + (maxval - minval) * val
+    return val.astype(theano.config.floatX)
+    # Constant Weight
+
+
+def initconst(shape1, shape2, val=0.0):
+    val = val * numpy.ones(
+        (shape1, shape2),
+        dtype=theano.config.floatX
+    )
+    return val.astype(theano.config.floatX)
+
+
+def GaussianNLL(y, mu, sig):
     nll = 0.5 * T.sum(T.sqr(y - mu) / sig**2 + 2 * T.log(sig) +
                       T.log(2 * numpy.pi), axis=1)
     return nll
-    
+
+
 def KLGaussianGaussian(mu1, sig1, mu2, sig2):
    
     kl = T.sum(0.5 * (2 * T.log(sig2) - 2 * T.log(sig1) +
@@ -173,7 +153,8 @@ def KLGaussianGaussian(mu1, sig1, mu2, sig2):
                    sig2**2 - 1), axis=1)
 
     return kl
-    
+
+
 def save_model(params, sigmas, filename):
 
     with open(filename, 'wb') as f:
@@ -181,7 +162,8 @@ def save_model(params, sigmas, filename):
             pickle.dump(param.get_value(borrow=True), f, -1)
         for sigma in sigmas:
             pickle.dump(sigma.get_value(borrow=True), f, -1)
-            
+
+
 def load_model(params, sigmas, filename):
 
     with open(filename, 'r') as f:
@@ -189,18 +171,22 @@ def load_model(params, sigmas, filename):
             param.set_value(pickle.load(f), borrow=True)
         for sigma in sigmas:
             sigma.set_value(pickle.load(f), borrow=True)
-            
+
+
 def softmax(X):
     eX = T.exp(X - X.max(axis=1, keepdims = True))
     prob = eX / eX.sum(axis=1, keepdims=True)
     return prob      
-    
+
+
 eps = 1e-6
-    
+
+
 def gumbel(shape):
     U = theano_rng.uniform(shape, low=eps, high=1.0-eps, dtype=theano.config.floatX )    
-    return  -T.log(-T.log(U))
- 
+    return -T.log(-T.log(U))
+
+
 def Cat_sample(pi, num_sample=None):
     pi2 = T.clip(pi, eps, 1.0 - eps)
     y = T.log(pi2) + gumbel(pi.shape)    
@@ -231,7 +217,7 @@ Wq_hst_ot = theano.shared(
 params.append(Wq_hst_ot)
 
 Wq_hst_stm1 = theano.shared(
-    value=initweight(n_s, n_s, -0.01, 0.01).reshape(1,n_s,n_s),#initortho(n_s, n_s).reshape(1,n_s,n_s),
+    value=initweight(n_s, n_s, -0.01, 0.01).reshape(1,n_s,n_s),
     name='Wq_hst_stm1',
     borrow=True,
     broadcastable=(True, False, False)
@@ -449,7 +435,7 @@ ba_aht3 = theano.shared(
     value=initconst(n_ha, 1).reshape(1,n_ha,1),
     name='ba_aht3',
     borrow=True,
-    broadcastable=(True,False,True)
+    broadcastable=(True, False, True)
 )
 
 params.append(ba_aht3)
@@ -486,15 +472,6 @@ for param in params:
     sigma = theano.shared(name = 'sigma_' + param.name, value = init_sig_perturbations*numpy.ones( param.get_value().shape ).astype( dtype = theano.config.floatX ), borrow = True, broadcastable=param.broadcastable )
     sigmas.append(sigma)
 
-'''
-for i in range(len(params)):
-    if i >= len(params) - 4:
-        sigma = theano.shared(name = 'sigma_' + params[i].name, value = 0.1*init_sig_perturbations*numpy.ones( params[i].get_value().shape ).astype( dtype = theano.config.floatX ), borrow = True, broadcastable=params[i].broadcastable )
-    else:
-        sigma = theano.shared(name = 'sigma_' + params[i].name, value = init_sig_perturbations*numpy.ones( params[i].get_value().shape ).astype( dtype = theano.config.floatX ), borrow = True, broadcastable=params[i].broadcastable )
-    
-    sigmas.append(sigma)
-'''                
 # Create placeholders for current perturbations of variables
 
 load_model(params, sigmas, base_name + '_best.pkl')
@@ -505,22 +482,19 @@ r_params = []
 r_epsilons = []
 
 for param in params:
-	
-	r_params.append( theano.shared(name = 'r_' + param.name, value = numpy.zeros( (n_perturbations, param.get_value().shape[1], param.get_value().shape[2] ) ).astype( dtype = theano.config.floatX ), borrow = True, broadcastable=(False, param.broadcastable[1], param.broadcastable[2]) ) )
-	r_epsilons.append( theano.shared(name = 'r_epsilon_' + param.name, value = numpy.zeros( (n_perturbations, param.get_value().shape[1], param.get_value().shape[2] ) ).astype( dtype = theano.config.floatX ), borrow = True, broadcastable=(False, param.broadcastable[1], param.broadcastable[2]) ) )
-	
+    r_params.append( theano.shared(name = 'r_' + param.name, value = numpy.zeros( (n_perturbations, param.get_value().shape[1], param.get_value().shape[2] ) ).astype( dtype = theano.config.floatX ), borrow = True, broadcastable=(False, param.broadcastable[1], param.broadcastable[2]) ) )
+    r_epsilons.append( theano.shared(name = 'r_epsilon_' + param.name, value = numpy.zeros( (n_perturbations, param.get_value().shape[1], param.get_value().shape[2] ) ).astype( dtype = theano.config.floatX ), borrow = True, broadcastable=(False, param.broadcastable[1], param.broadcastable[2]) ) )
+
 # Create update to randomize shared variable representation of samples from population density on parameters
-	
 updates_randomize_params = []
 
 for i in range(len(params)):
-	
     epsilon_half = theano_rng.normal((n_perturbations/2,params[i].shape[1],params[i].shape[2]), dtype = theano.config.floatX)
     r_epsilon = T.concatenate( [epsilon_half, -1.0*epsilon_half], axis = 0 )
     r_param = params[i] + r_epsilon*(T.nnet.softplus( sigmas[i] ) + sig_min_perturbations)
     updates_randomize_params.append( (r_params[i], r_param) )
     updates_randomize_params.append( (r_epsilons[i], r_epsilon) )
-	
+
 randomize_params = theano.function(inputs = [], outputs = [], updates = updates_randomize_params)
 
 print('randomize_params compiled...')
@@ -534,36 +508,18 @@ maximize_params = theano.function(inputs = [], outputs = [], updates = updates_m
 
 print('maximize_params compiled...')
 
-'''
-t_start = timeit.default_timer()
-
-for i in range(100):
-    randomize_params()
-    
-t_end = timeit.default_timer()
-
-print '100 randomizations took %f seconds.' % (t_end - t_start)
-'''
-
 ####################################################################
 #
 # Name the randomly perturbed version of parameters
 #
 ####################################################################
-    
-[r_Wq_hst_ot, r_Wq_hst_stm1, r_bq_hst,\
-r_Wq_hst2_hst, r_bq_hst2,\
-r_Wq_stmu_hst2, r_bq_stmu,\
-r_Wq_stsig_hst2, r_bq_stsig,\
-r_Wl_stmu_stm1, r_bl_stmu,\
-r_Wl_stsig_stm1, r_bl_stsig,\
-r_Wl_ost_st, r_bl_ost,\
-r_Wl_otmu_st, r_bl_otmu,\
-r_Wl_otsig_st, r_bl_otsig,\
-r_Wa_aht_st, r_ba_aht,\
-r_Wa_aht2_aht, r_ba_aht2,\
-r_Wa_aht3_aht2, r_ba_aht3,\
-r_Wa_atpi_aht, r_ba_atpi] = r_params
+
+[
+    r_Wq_hst_ot, r_Wq_hst_stm1, r_bq_hst, r_Wq_hst2_hst, r_bq_hst2, r_Wq_stmu_hst2, r_bq_stmu, r_Wq_stsig_hst2, 
+    r_bq_stsig, r_Wl_stmu_stm1, r_bl_stmu, r_Wl_stsig_stm1, r_bl_stsig, r_Wl_ost_st, r_bl_ost, r_Wl_otmu_st, r_bl_otmu, 
+    r_Wl_otsig_st, r_bl_otsig, r_Wa_aht_st, r_ba_aht, r_Wa_aht2_aht, r_ba_aht2, r_Wa_aht3_aht2, r_ba_aht3, 
+    r_Wa_atpi_aht, r_ba_atpi
+] = r_params
 
 ###################################################################
 #  
@@ -603,11 +559,6 @@ hst2 =  T.tanh( T.batched_tensordot(r_Wq_hst2_hst,T.reshape(hst,(n_perturbations
 stmu =  T.tanh( T.batched_tensordot(r_Wq_stmu_hst2,T.reshape(hst2,(n_perturbations,n_s,n_proc)),axes=[[2],[1]]) + r_bq_stmu )
 stsig = T.nnet.sigmoid( T.batched_tensordot(r_Wq_stsig_hst2,T.reshape(hst2,(n_perturbations,n_s,n_proc)),axes=[[2],[1]]) + r_bq_stsig ) + sig_min_states
 
-# Explicitly encode reward as homeostatic state variable
-# Rescale representation to fit within linear response of the tanh-nonlinearity
-# stmu = T.set_subtensor(stmu[:,0,:],0.1*rewt[:,0,:]).reshape((n_perturbations,n_s,n_proc))
-# stsig = T.set_subtensor(stsig[:,0,:],0.01).reshape((n_perturbations,n_s,n_proc))
-
 # Sample from variational density
 stp1 = stmu + theano_rng.normal((n_perturbations,n_s,n_proc))*stsig
     
@@ -634,10 +585,6 @@ at = atpi # Cat_sample(atpi) #DETERMINISTIC ACTION!
 prior_stmu = T.tanh( T.batched_tensordot(r_Wl_stmu_stm1, T.reshape(st,(n_perturbations,n_s,n_proc)),axes=[[2],[1]]) + r_bl_stmu )
 prior_stsig = T.nnet.sigmoid( T.batched_tensordot(r_Wl_stsig_stm1, T.reshape(st,(n_perturbations,n_s,n_proc)),axes=[[2],[1]]) + r_bl_stsig ) + sig_min_states
     
-# Explicitly encode expectations on homeostatic state variable
-# prior_stmu = T.set_subtensor(prior_stmu[:,0,:],0.1)         #ifelse(T.lt(t,20),prior_stmu, T.set_subtensor(prior_stmu[:,0,:],0.1))
-# prior_stsig = T.set_subtensor(prior_stsig[:,0,:],0.01)     #ifelse(T.lt(t,20),prior_stsig, T.set_subtensor(prior_stsig[:,0,:],0.005))    
-   
 # Calculate KL divergence between variational density and prior density
 # using explicit formula for diagonal gaussians
 KL_st = KLGaussianGaussian(stmu, stsig, prior_stmu, prior_stsig)
@@ -690,12 +637,9 @@ def do_sampling(n_steps):
         full_prior_otsig[i] = prior_otsig
         
     return observations, full_prior_otmu, full_prior_otsig
-        
-    
-    
+
 
 # Initialize environments
-    
 def evaluate_FA():
     
     reset_st()
@@ -711,11 +655,8 @@ def evaluate_FA():
         dones[i] = False
         mean_rews[i] = 0.0
         
-    #print [FA.get_value().mean(), mean_rews.mean(), KLA.get_value().mean(), pA.get_value().mean(), KLhA.get_value().mean()]
-
-        
     # Sample first actions
-    [act, op_rew, oFET, otmu, otsig, oot, stmu, stsig, ost, prior_stmu, prior_stsig] = step_agent(obs, rews)
+    [act, _, _, _, _, _, _, _, _, _, _] = step_agent(obs, rews)
     
     # As long as not all processes are finished
     while numpy.any( dones == False ):
@@ -726,11 +667,10 @@ def evaluate_FA():
             # If process is not finished
             if dones[i] == False:
                 
-                # Do environmental step with sampled action,
-                # collectiong new observations
-                ob, rew, done, _  = envs[i].step( numpy.argmax( act[i,:,0].squeeze() ) )
-                obs[i,:,0] = ob
-                rews[i,0,0] = rew
+                # Do environmental step with sampled action, collectiong new observations
+                ob, rew, done, _ = envs[i].step(numpy.argmax(act[i, :, 0].squeeze()))
+                obs[i, :, 0] = ob
+                rews[i, 0, 0] = rew
                 dones[i] = done
             
                 mean_rews[i] = mean_rews[i] + rew
@@ -741,7 +681,7 @@ def evaluate_FA():
                     mask_FA.set_value(temp)
         
         # Sample new actions  
-        [act, op_rew, oFEt, otmu, otsig, oot, stmu, stsig, ost, prior_stmu, prior_stsig] = step_agent(obs, rews)
+        [act, _, _, _, _, _, _, _, _, _, _] = step_agent(obs, rews)
     
     oFA = FA.get_value().mean()
     omean_rews = mean_rews.mean()
@@ -750,11 +690,7 @@ def evaluate_FA():
     
     if omean_rews > 100.0:
         print('###################################################################')
-    print [oFA, omean_rews, oKLA, opA]
-    #print op_rew.shape
-    #print op_rew.mean()
-    #print oFEt.shape
-    #print oFEt.mean()
+    print([oFA, omean_rews, oKLA, opA])
     if mean_rews.mean() > 100.0:
         print('###################################################################')
         
@@ -786,11 +722,8 @@ def simulate():
         dones[i] = False
         mean_rews[i] = 0.0
         
-    #print [FA.get_value().mean(), mean_rews.mean(), KLA.get_value().mean(), pA.get_value().mean(), KLhA.get_value().mean()]
-
-        
     # Sample first actions
-    [act, op_rew, oFET, otmu, otsig, oot, stmu, stsig, ost, prior_stmu, prior_stsig] = step_agent(obs, rews)
+    [act, _, _, _, _, _, _, _, _, _, _] = step_agent(obs, rews)
     
     timestep = 0
     
@@ -802,13 +735,8 @@ def simulate():
             
             # If process is not finished
             if dones[i] == False:
-                
-                #if i == 0:
-                #    envs[i].render()
-                #    sleep(0.05)
-                
-                # Do environmental step with sampled action,
-                # collectiong new observations
+                                
+                # Do environmental step with sampled action, collectiong new observations
                 ob, rew, done, _  = envs[i].step( numpy.argmax( act[i,:,0].squeeze() ) )
                 obs[i,:,0] = ob
                 rews[i,0,0] = rew
@@ -822,7 +750,7 @@ def simulate():
                     mask_FA.set_value(temp)
         
         # Sample new actions  
-        [act, op_rew, oFEt, otmu, otsig, oot, stmu, stsig, ost, prior_stmu, prior_stsig] = step_agent(obs, rews)
+        [act, _, _, otmu, otsig, oot, stmu, stsig, ost, prior_stmu, prior_stsig] = step_agent(obs, rews)
         
         full_otmu[timestep] = otmu
         full_otsig[timestep] = otsig
