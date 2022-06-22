@@ -8,23 +8,12 @@
 """
 
 # Imports
-import cPickle
-import timeit
-import scipy
-
-import matplotlib.pyplot as plt
-
+import pickle
 import numpy
 import scipy
-
 import theano
 import theano.tensor as T
-from theano.ifelse import ifelse
-
-from theano import pprint as pp
-
-from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams  
-
+from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 import gym
 gym.logger.set_level(40)
 
@@ -177,17 +166,17 @@ def save_model(params, sigmas, filename):
 
     with open(filename, 'wb') as f:
         for param in params:
-            cPickle.dump(param.get_value(borrow=True), f, -1)
+            pickle.dump(param.get_value(borrow=True), f, -1)
         for sigma in sigmas:
-            cPickle.dump(sigma.get_value(borrow=True), f, -1)
+            pickle.dump(sigma.get_value(borrow=True), f, -1)
             
 def load_model(params, sigmas, filename):
 
     with open(filename, 'r') as f:
         for param in params:
-            param.set_value(cPickle.load(f), borrow=True)
+            param.set_value(pickle.load(f), borrow=True)
         for sigma in sigmas:
-            sigma.set_value(cPickle.load(f), borrow=True)
+            sigma.set_value(pickle.load(f), borrow=True)
             
 def softmax(X):
     eX = T.exp(X - X.max(axis=1, keepdims = True))
@@ -508,7 +497,6 @@ r_params = []
 r_epsilons = []
 
 for param in params:
-	
 	r_params.append( theano.shared(name = 'r_' + param.name, value = numpy.zeros( (n_perturbations, param.get_value().shape[1], param.get_value().shape[2] ) ).astype( dtype = theano.config.floatX ), borrow = True, broadcastable=(False, param.broadcastable[1], param.broadcastable[2]) ) )
 	r_epsilons.append( theano.shared(name = 'r_epsilon_' + param.name, value = numpy.zeros( (n_perturbations, param.get_value().shape[1], param.get_value().shape[2] ) ).astype( dtype = theano.config.floatX ), borrow = True, broadcastable=(False, param.broadcastable[1], param.broadcastable[2]) ) )
 	
@@ -517,19 +505,18 @@ for param in params:
 updates_randomize_params = []
 
 for i in range(len(params)):
-	
     epsilon_half = theano_rng.normal((n_perturbations/2,params[i].shape[1],params[i].shape[2]), dtype = theano.config.floatX)
     r_epsilon = T.concatenate( [epsilon_half, -1.0*epsilon_half], axis = 0 )
     r_param = params[i] + r_epsilon*(T.nnet.softplus( sigmas[i] ) + sig_min_perturbations)
     updates_randomize_params.append( (r_params[i], r_param) )
     updates_randomize_params.append( (r_epsilons[i], r_epsilon) )
 	
-print 'r_params created!'
+print('r_params created!')
 
 
 randomize_params = theano.function(inputs = [], outputs = [], updates = updates_randomize_params)
 
-print 'randomize_params compiled...'
+print('randomize_params compiled...')
 
 '''
 t_start = timeit.default_timer()
@@ -713,28 +700,14 @@ def evaluate_FA(sig_rew):
     opA = pA.get_value().mean()
     
     if omean_rews > -199.999:
-        print '###################################################################'            
-    print [oFA, omean_rews, oKLA, opA]
-    print 'sig_rew: %f' % sig_rew
-    #print op_rew.shape
-    #print op_rew.mean()
-    #print oFEt.shape
-    #print oFEt.mean()
+        print('###################################################################')
+    print([oFA, omean_rews, oKLA, opA])
+    print('sig_rew: %f' % sig_rew)
     if mean_rews.mean() > -199.999:
-        print '###################################################################'       
+        print('###################################################################')
         
     return oFA, omean_rews, oKLA, opA
 
-'''        
-t_start = timeit.default_timer()
-
-evaluate_FA()
-
-t_end = timeit.default_timer()
-
-print 'Took %f seconds!' % (t_end - t_start)  
-'''
-    
 #########################################################
 #
 # Define Parameter Updates
@@ -747,9 +720,9 @@ FA_mean_perturbations = FA.mean(axis = 1)
 param_updates = []
 
 for i in range(len(params)):
-    print 'Creating updates for parameter %d...' % i
+    print('Creating updates for parameter %d...' % i)
     
-    print 'Calculating derivative'
+    print('Calculating derivative')
     normalization = T.nnet.softplus( sigmas[i] ) + sig_min_perturbations
     delta = T.tensordot(FA_mean_perturbations,r_epsilons[i],axes = [[0],[0]])/normalization/n_perturbations
     
@@ -760,9 +733,9 @@ for i in range(len(params)):
    
 for i in range(len(sigmas)):
     
-    print 'Creating updates for std dev of parameter %d...' % i
+    print('Creating updates for std dev of parameter %d...' % i)
     
-    print 'Calculating derivative'
+    print('Calculating derivative')
     normalization = T.nnet.softplus( sigmas[i] ) + sig_min_perturbations
     outer_der = (r_epsilons[i]*r_epsilons[i]-1.0)/normalization
     inner_der = T.exp(sigmas[i])/(1.0 + T.exp(sigmas[i]))

@@ -8,22 +8,14 @@
 """
 
 # Imports
-import cPickle
+import pickle
 import timeit
-import scipy
-
-import matplotlib.pyplot as plt
-
 import numpy
 import scipy
-
 import theano
 import theano.tensor as T
 from theano.ifelse import ifelse
-
-from theano import pprint as pp
-
-from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams  
+from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 
 # Parameters
 n_s = 10 # States
@@ -155,17 +147,17 @@ def save_model(params, sigmas, filename):
 
     with open(filename, 'wb') as f:
         for param in params:
-            cPickle.dump(param.get_value(borrow=True), f, -1)
+            pickle.dump(param.get_value(borrow=True), f, -1)
         for sigma in sigmas:
-            cPickle.dump(sigma.get_value(borrow=True), f, -1)
+            pickle.dump(sigma.get_value(borrow=True), f, -1)
             
 def load_model(params, sigmas, filename):
 
     with open(filename, 'r') as f:
         for param in params:
-            param.set_value(cPickle.load(f), borrow=True)
+            param.set_value(pickle.load(f), borrow=True)
         for sigma in sigmas:
-            sigma.set_value(cPickle.load(f), borrow=True)
+            sigma.set_value(pickle.load(f), borrow=True)
        
 #########################################
 #
@@ -815,9 +807,9 @@ run_agent_scan = theano.function(inputs = [], outputs = [states_th, oat_th, ot_t
 updates = []
 
 for i in range(len(params)):
-    print 'Creating updates for parameter %d...' % i
+    print('Creating updates for parameter %d...' % i)
     
-    print 'Calculating derivative'
+    print('Calculating derivative')
     normalization = T.nnet.softplus( sigmas[i] ) + sig_min_perturbations
     delta = T.tensordot(FE_mean_perturbations,r_epsilons[i],axes = [[0],[0]])/normalization/n_perturbations
     
@@ -843,9 +835,9 @@ grad_corr = T.dot(deltas_h1, deltas_h2)/(deltas_h1.norm(2)*deltas_h2.norm(2))
    
 for i in range(len(sigmas)):
     
-    print 'Creating updates for std dev of parameter %d...' % i
+    print('Creating updates for std dev of parameter %d...' % i)
     
-    print 'Calculating derivative'
+    print('Calculating derivative')
     normalization = T.nnet.softplus( sigmas[i] ) + sig_min_perturbations
     outer_der = (r_epsilons[i]*r_epsilons[i]-1.0)/normalization
     inner_der = T.exp(sigmas[i])/(1.0 + T.exp(sigmas[i]))
@@ -887,8 +879,8 @@ train = theano.function(
 
 [FE_min, oFE_mean_perturbations, oKL_st_mean, oot_mean, ooht_mean, ooat_mean, ograd_corr, ograd_corr_sigma, odeltas_h1, odeltas_h2, odeltas_h1_sigma, odeltas_h2_sigma, oFE_std_perturbations, oFE_mean_perturbations_std] = train()
 
-print 'Initial FEs:'
-print [FE_min, oKL_st_mean, oot_mean, ooht_mean, ooat_mean]
+print('Initial FEs:')
+print([FE_min, oKL_st_mean, oot_mean, ooht_mean, ooat_mean])
 
 numpy.savetxt('initial_deltas_h1.txt',odeltas_h1)
 numpy.savetxt('initial_deltas_h2.txt',odeltas_h2)
@@ -902,24 +894,24 @@ for i in range(n_steps):
     # Take the time for each loop
     start_time = timeit.default_timer()
     
-    print 'Iteration: %d' % i    
-    
+    print('Iteration: %d' % i)
+
     # Perform stochastic gradient descent using ADAM updates
-    print 'Descending on Free Energy...'    
+    print('Descending on Free Energy...')
     [oFE_mean, oFE_mean_perturbations, oKL_st_mean, oot_mean, ooht_mean, ooat_mean, ograd_corr, ograd_corr_sigma, odeltas_h1, odeltas_h2, odeltas_h1_sigma, odeltas_h2_sigma, oFE_std_perturbations, oFE_mean_perturbations_std] = train()
     
-    print 'Free Energies:'
-    print [oFE_mean, oKL_st_mean, oot_mean, ooht_mean, ooat_mean]
+    print('Free Energies:')
+    print([oFE_mean, oKL_st_mean, oot_mean, ooht_mean, ooat_mean])
        
-    print 'Correlation between gradients: %f' % ograd_corr   
-    print 'Norms of Gradients: %f vs. %f' % (numpy.linalg.norm(odeltas_h1), numpy.linalg.norm(odeltas_h2))
+    print('Correlation between gradients: %f' % ograd_corr)
+    print('Norms of Gradients: %f vs. %f' % (numpy.linalg.norm(odeltas_h1), numpy.linalg.norm(odeltas_h2)))
     
-    print 'Correlation between gradients for std devs: %f' % ograd_corr_sigma 
-    print 'Norms of Gradients: %f vs. %f' % (numpy.linalg.norm(odeltas_h1_sigma), numpy.linalg.norm(odeltas_h2_sigma))
+    print('Correlation between gradients for std devs: %f' % ograd_corr_sigma)
+    print('Norms of Gradients: %f vs. %f' % (numpy.linalg.norm(odeltas_h1_sigma), numpy.linalg.norm(odeltas_h2_sigma)))
     
-    print 'STD OF FE_means:'
-    print oFE_mean_perturbations_std
-    print 'INDIVIDUAL STDS from %f to %f...' % (oFE_std_perturbations.min(), oFE_std_perturbations.max())
+    print('STD OF FE_means:')
+    print(oFE_mean_perturbations_std)
+    print('INDIVIDUAL STDS from %f to %f...' % (oFE_std_perturbations.min(), oFE_std_perturbations.max()))
        
     if i == 0:
         with open('log_' + base_name + '.txt', "w") as myfile:
@@ -930,7 +922,7 @@ for i in range(n_steps):
     
     # Stop time
     end_time = timeit.default_timer()
-    print 'Time for iteration: %f' % (end_time - start_time)
+    print('Time for iteration: %f' % (end_time - start_time))
     
     # Save current parameters every nth loop
     if i % saving_steps == 0:

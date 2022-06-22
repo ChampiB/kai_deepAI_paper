@@ -8,7 +8,7 @@
 """
 
 # Imports
-import cPickle
+import pickle
 import timeit
 import scipy
 
@@ -178,17 +178,17 @@ def save_model(params, sigmas, filename):
 
     with open(filename, 'wb') as f:
         for param in params:
-            cPickle.dump(param.get_value(borrow=True), f, -1)
+            pickle.dump(param.get_value(borrow=True), f, -1)
         for sigma in sigmas:
-            cPickle.dump(sigma.get_value(borrow=True), f, -1)
+            pickle.dump(sigma.get_value(borrow=True), f, -1)
             
 def load_model(params, sigmas, filename):
 
     with open(filename, 'r') as f:
         for param in params:
-            param.set_value(cPickle.load(f), borrow=True)
+            param.set_value(pickle.load(f), borrow=True)
         for sigma in sigmas:
-            sigma.set_value(cPickle.load(f), borrow=True)
+            sigma.set_value(pickle.load(f), borrow=True)
             
 def softmax(X):
     eX = T.exp(X - X.max(axis=1, keepdims = True))
@@ -523,7 +523,7 @@ for i in range(len(params)):
 	
 randomize_params = theano.function(inputs = [], outputs = [], updates = updates_randomize_params)
 
-print 'randomize_params compiled...'
+print('randomize_params compiled...')
 
 updates_maximize_params = []
 
@@ -532,7 +532,7 @@ for i in range(len(params)):
 
 maximize_params = theano.function(inputs = [], outputs = [], updates = updates_maximize_params)
 
-print 'maximize_params compiled...'
+print('maximize_params compiled...')
 
 '''
 t_start = timeit.default_timer()
@@ -749,14 +749,14 @@ def evaluate_FA():
     opA = pA.get_value().mean()
     
     if omean_rews > 100.0:
-        print '###################################################################'            
+        print('###################################################################')
     print [oFA, omean_rews, oKLA, opA]
     #print op_rew.shape
     #print op_rew.mean()
     #print oFEt.shape
     #print oFEt.mean()
     if mean_rews.mean() > 100.0:
-        print '###################################################################'       
+        print('###################################################################')
         
     return oFA, omean_rews, oKLA, opA
     
@@ -836,7 +836,7 @@ def simulate():
         full_prior_stsig[timestep] = prior_stsig
     
         timestep = timestep + 1
-        print 'timestep: %d' % timestep
+        print('timestep: %d' % timestep)
     
     oFA = FA.get_value().mean()
     omean_rews = mean_rews.mean()
@@ -844,14 +844,10 @@ def simulate():
     opA = pA.get_value().mean()
     
     if omean_rews > 100.0:
-        print '###################################################################'            
-    print [oFA, omean_rews, oKLA, opA]
-    #print op_rew.shape
-    #print op_rew.mean()
-    #print oFEt.shape
-    #print oFEt.mean()
+        print('###################################################################')
+    print([oFA, omean_rews, oKLA, opA])
     if mean_rews.mean() > 100.0:
-        print '###################################################################'       
+        print('###################################################################')
         
     return full_otmu, full_otsig, full_ot, full_stmu, full_stsig, full_st, full_prior_stmu, full_prior_stsig
 
@@ -875,14 +871,14 @@ print 'Took %f seconds!' % (t_end - t_start)
 ########################################################################
 
 
-print 'Population:'
+print('Population:')
 randomize_params()
 evaluate_FA()
-print 'Mean:'
+print('Mean:')
 maximize_params()
 evaluate_FA()
 
-print 'Running'
+print('Running')
 full_otmu, full_otsig, full_ot, full_stmu, full_stsig, full_st, full_prior_stmu, full_prior_stsig = simulate()
 
 plt.plot(full_otmu[:,0,0,0],label  ='otmu')
@@ -905,15 +901,10 @@ plt.subplot(234)
 plt.plot(full_prior_stmu[:,0,:,0],label  ='prior_stmu')
 plt.subplot(235)
 plt.plot(full_prior_stsig[:,0,:,0],label  ='prior_stsig')
-#plt.plot(full_stsig[:,0,0,0],label  ='stsig')
-#plt.plot(full_st[:,0,0,0],label  ='st')
-#plt.plot(full_stmu[:,0,1,0],label  ='stmu2')
-#plt.plot(full_stsig[:,0,1,0],label  ='stsig2')
-#plt.plot(full_st[:,0,1,0],label  ='st2')
 plt.legend()
 plt.show()
 
-print 'Sampling:'
+print('Sampling:')
 obs, ootmu, ootsig = do_sampling(200)
     
 #plt.subplot(224)

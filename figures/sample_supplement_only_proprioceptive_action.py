@@ -8,21 +8,14 @@
 """
 
 # Imports
-import cPickle
-import timeit
-import scipy
-
+import pickle
 import matplotlib.pyplot as plt
-
 import numpy
 import scipy
-
 import theano
 import theano.tensor as T
 from theano.ifelse import ifelse
-from theano import pprint as pp
-
-from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams 
+from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 
 # Filename of stored model parameters
 filename = 'supplement_only_proprioceptive_action_best.pkl'
@@ -559,9 +552,9 @@ def load_model(params, sigmas, filename):
 
     with open(filename, 'r') as f:
         for param in params:
-            param.set_value(cPickle.load(f), borrow=True)
+            param.set_value(pickle.load(f), borrow=True)
         for sigma in sigmas:
-            sigma.set_value(cPickle.load(f), borrow=True)
+            sigma.set_value(pickle.load(f), borrow=True)
 
 def reduce_first_dim(x):
     
@@ -765,8 +758,8 @@ free_energy = theano.function([], [FE_mean, KL_st_mean, p_ot_mean, p_oht_mean, p
 
 free_energy_sum = free_energy()
 
-print 'Free Energy'
-print free_energy_sum
+print('Free Energy')
+print(free_energy_sum)
 
 #############################################################
 #
@@ -825,10 +818,7 @@ s_t0_sample = theano.shared(name = 's_t0', value = numpy.zeros( (n_s,n_samples) 
 eval_Penalized_FE = theano.function([], [FE_mean, observations_sampled, rewards_sampled, actions_observations_sampled, states_sampled], allow_input_downcast = True, on_unused_input='ignore')
 
 # Evaluate Function
-#print 'Penalized FE'
-results_eval =  eval_Penalized_FE()
-#print results_eval
-
+results_eval = eval_Penalized_FE()
 FE_min = results_eval[0]
 
 observations = results_eval[1]
@@ -836,8 +826,8 @@ rewards = results_eval[2]
 actions = results_eval[3]
 states = results_eval[4]
 
-print 'FE_min:'
-print FE_min
+print('FE_min:')
+print(FE_min)
 
 fig_sampled = plt.figure(2,figsize=(12,12))
 plt.subplot(2,2,2)

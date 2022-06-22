@@ -8,7 +8,7 @@
 """
 
 # Imports
-import cPickle
+import pickle
 import timeit
 import scipy
 
@@ -559,9 +559,9 @@ def load_model(params, sigmas, filename):
 
     with open(filename, 'r') as f:
         for param in params:
-            param.set_value(cPickle.load(f), borrow=True)
+            param.set_value(pickle.load(f), borrow=True)
         for sigma in sigmas:
-            sigma.set_value(cPickle.load(f), borrow=True)
+            sigma.set_value(pickle.load(f), borrow=True)
 
 def reduce_first_dim(x):
     
@@ -760,8 +760,8 @@ free_energy = theano.function([], [FE_mean, KL_st_mean, p_ot_mean, p_oht_mean, p
 
 free_energy_sum = free_energy()
 
-print 'Free Energy'
-print free_energy_sum
+print('Free Energy')
+print(free_energy_sum)
 
 #############################################################
 #
@@ -831,8 +831,8 @@ rewards = results_eval[2]
 actions = results_eval[3]
 states = results_eval[4]
 
-print 'FE_min:'
-print FE_min
+print('FE_min:')
+print(FE_min)
 
 plt.subplot(3,4,1)
 plt.title('$o_x(t)$ sampled')
@@ -969,8 +969,8 @@ rewards = results_eval[2]
 actions = results_eval[3]
 states = results_eval[4]
 
-print 'FE_min:'
-print FE_min
+print('FE_min:')
+print(FE_min)
 
 plt.subplot(3,4,9)
 plt.title('$o_x(t)$ constrained')
