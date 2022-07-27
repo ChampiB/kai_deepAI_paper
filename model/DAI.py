@@ -36,7 +36,7 @@ class DAI:
         st, st_mu, st_sig = self.encoder.forward(stm1, ot, oht, at)
 
         # Calculate parameters of likelihood distributions from sampled state
-        ot_mu, ot_sig, oht_mu, oht_sig, oat_mu, oat_sig = self.decoder.forward(stm1)
+        ot_mu, ot_sig, oht_mu, oht_sig, oat_mu, oat_sig = self.decoder.forward(st)
 
         # Calculate prior distribution of the hidden state from previous state
         prior_mu, prior_sig = self.transition.forward(stm1, t)
